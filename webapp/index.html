@@ -6,16 +6,12 @@
   <title>TikTok Multitool</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.expand();
       tg.setHeaderColor("#1a1a1a");
     }
   </script>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  </style>
 </head>
 <body class="bg-[#1a1a1a] text-white min-h-screen">
   <div class="max-w-lg mx-auto p-4">
@@ -23,7 +19,7 @@
       <h1 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">
         TikTok Multitool
       </h1>
-      <p class="text-gray-400 text-sm">Всё анализируется у тебя на устройстве</p>
+      <p class="text-gray-400 text-sm">Всё работает у тебя на устройстве</p>
     </div>
 
     <div class="bg-[#252525] rounded-3xl p-6 shadow-xl">
@@ -40,6 +36,8 @@
   </div>
 
   <script>
+    let currentAudioUrl = '';
+
     async function analyzeVideo() {
       const input = document.getElementById('urlInput');
       const resultDiv = document.getElementById('result');
@@ -58,7 +56,6 @@
         </div>`;
 
       try {
-        // Используем надёжный API tikwm.com
         const apiUrl = `https://tikwm.com/api/?url=${encodeURIComponent(url)}`;
         const res = await fetch(apiUrl);
         const data = await res.json();
@@ -66,30 +63,42 @@
         if (data.code !== 0 || !data.data) throw new Error();
 
         const video = data.data;
-        const musicUrl = video.music || video.music_info?.play || '';
+        const musicTitle = video.music_info?.title || 'Оригинальный звук';
+        const musicAuthor = video.music_info?.author || 'TikTok';
+        currentAudioUrl = video.music || video.music_info?.play || '';
 
         let html = `
           <div class="space-y-6">
             <div>
               <h2 class="text-xl font-semibold">🎵 Музыка</h2>
-              <p class="text-2xl font-bold">${video.music_info?.title || 'Оригинальный звук'}</p>
-              <p class="text-gray-400">${video.music_info?.author || 'TikTok'}</p>
+              <p class="text-2xl font-bold">${musicTitle}</p>
+              <p class="text-gray-400">${musicAuthor}</p>
             </div>
 
-            <div class="flex gap-3">
-              ${musicUrl ? `
-                <button onclick="downloadAudio('${musicUrl}', '${video.music_info?.title || 'original_sound'}')" 
-                        class="flex-1 bg-green-600 hover:bg-green-700 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
-                  📥 Скачать оригинальный звук
+            <div class="grid grid-cols-1 gap-3">
+              ${currentAudioUrl ? `
+                <button onclick="playAudio()" 
+                        class="bg-blue-600 hover:bg-blue-700 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+                  ▶ Воспроизвести аудио
+                </button>
+                
+                <button onclick="downloadTikTokAudio()" 
+                        class="bg-green-600 hover:bg-green-700 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+                  📥 Скачать аудиодорожку TikTok
+                </button>
+
+                <button onclick="startShazamFlow()" 
+                        class="bg-amber-600 hover:bg-amber-700 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+                  🎤 Распознать в Shazam
                 </button>` : ''}
-              
-              <button onclick="copyTrack('${video.music_info?.title || ''} - ${video.music_info?.author || ''}')" 
-                      class="flex-1 bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl font-bold">
-                📋 Копировать название трека
+
+              <button onclick="searchFullSong('${musicTitle}', '${musicAuthor}')" 
+                      class="bg-violet-600 hover:bg-violet-700 py-4 rounded-2xl font-bold">
+                🔎 Найти полную версию песни (YouTube)
               </button>
             </div>
 
-            <div class="text-xs text-gray-400">
+            <div class="text-xs text-gray-400 pt-4 border-t border-gray-700">
               📼 Название видео: ${video.title || '—'}<br>
               👤 Автор: ${video.author?.nickname || '—'}
             </div>
@@ -102,23 +111,50 @@
       }
     }
 
-    function downloadAudio(url, title) {
+    function playAudio() {
+      if (!currentAudioUrl) return;
+      const audio = new Audio(currentAudioUrl);
+      audio.play();
+    }
+
+    function downloadTikTokAudio() {
+      if (!currentAudioUrl) return;
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp3`;
+      a.href = currentAudioUrl;
+      a.download = 'tiktok_original_sound.mp3';
       document.body.appendChild(a);
       a.click();
       a.remove();
     }
 
-    function copyTrack(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('✅ Название трека скопировано!');
-      });
+    function startShazamFlow() {
+      if (!currentAudioUrl) return;
+      
+      const audio = new Audio(currentAudioUrl);
+      audio.play();
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `
+        <div class="text-center py-8">
+          <div class="text-5xl mb-6">🔊</div>
+          <h3 class="text-2xl font-bold mb-3">Аудио уже играет</h3>
+          <p class="text-gray-400 mb-8">Теперь открой приложение Shazam и нажми «Распознать»</p>
+          
+          <a href="shazam://" 
+             class="block w-full bg-[#00AEEF] text-white py-6 rounded-3xl text-2xl font-bold mb-6 active:scale-95 transition">
+            📱 Открыть Shazam
+          </a>
+          
+          <button onclick="analyzeVideo()" class="text-gray-400 underline">
+            ← Вернуться к результату
+          </button>
+        </div>`;
     }
 
-    // Автозапуск, если Telegram передал ссылку
-    window.Telegram?.WebApp?.onEvent('themeChanged', () => {});
+    function searchFullSong(title, author) {
+      const query = encodeURIComponent(`${title} ${author}`);
+      window.open(`https://www.youtube.com/results?search_query=${query}`, '_blank');
+    }
   </script>
 </body>
 </html>
