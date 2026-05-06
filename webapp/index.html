@@ -6,49 +6,137 @@
     <title>TikTok Multitool</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: system-ui; padding: 20px; background: #000; color: white; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 16px; max-width: 480px; margin-left: auto; margin-right: auto; }
+        .header { text-align: center; margin-bottom: 24px; }
+        .header h1 { font-size: 28px; margin: 0 0 8px 0; background: linear-gradient(90deg, #ff0050, #00f2ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card { background: #1a1a1a; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 14px; color: #aaa; margin-bottom: 8px; }
+        .input-group input { width: 100%; padding: 14px 16px; border: none; border-radius: 12px; background: #2a2a2a; color: white; font-size: 16px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: linear-gradient(90deg, #ff0050, #00f2ea); color: white; font-size: 17px; font-weight: 600; cursor: pointer; }
+        .btn:active { transform: scale(0.98); }
+        .result { display: none; }
+        .result.show { display: block; }
+        .music-card { background: #111; border-radius: 12px; padding: 16px; margin-top: 12px; }
+        .music-title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; }
+        .music-artist { color: #00f2ea; font-size: 16px; }
+        .meta { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .meta-item { background: #222; padding: 8px 14px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+        .status { text-align: center; padding: 20px; color: #888; font-size: 15px; }
+        .loading { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .spinner { width: 20px; height: 20px; border: 3px solid #333; border-top-color: #00f2ea; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #555; }
     </style>
 </head>
 <body>
-    <h1>TikTok Audio Analyzer</h1>
-    <div id="status">Загрузка...</div>
+    <div class="header">
+        <h1>TikTok Multitool</h1>
+        <p style="margin:0; color:#888; font-size:15px;">Всё анализируется на твоём устройстве</p>
+    </div>
+
+    <div class="card">
+        <div class="input-group">
+            <label>Ссылка на TikTok видео</label>
+            <input type="text" id="urlInput" placeholder="https://www.tiktok.com/@user/video/1234567890">
+        </div>
+        <button class="btn" onclick="analyze()">🚀 Анализировать видео</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="result" class="result card">
+        <h3 style="margin-top:0; color:#00f2ea;">Результат анализа</h3>
+        
+        <div class="music-card">
+            <div class="music-title" id="musicTitle"></div>
+            <div class="music-artist" id="musicArtist"></div>
+        </div>
+
+        <div class="meta">
+            <div class="meta-item">👤 <span id="videoAuthor"></span></div>
+            <div class="meta-item">❤️ <span id="likes"></span></div>
+            <div class="meta-item">👁️ <span id="views"></span></div>
+            <div class="meta-item">⏱️ <span id="duration"></span></div>
+        </div>
+
+        <div style="margin-top:16px; display:flex; gap:8px;">
+            <button onclick="copyMusic()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#333; color:white; font-size:14px;">📋 Копировать трек</button>
+            <button onclick="window.location.reload()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#333; color:white; font-size:14px;">🔄 Новый анализ</button>
+        </div>
+    </div>
+
+    <div class="footer">TikTok Multitool • v1.2 • Client-side only</div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
+        tg.expand();
 
-        async function analyzeTikTok(url) {
-            const status = document.getElementById('status');
-            status.textContent = 'Анализируем музыку... (всё на твоём устройстве)';
+        if (tg.themeParams.bg_color) document.body.style.background = tg.themeParams.bg_color;
 
-            try {
-                // Пример: используем публичный TikTok API (client-side)
-                const apiUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`;
-                const res = await fetch(apiUrl);
-                const data = await res.json();
-
-                let music = data.data?.music || data.data?.musicInfo?.title || 'Не найдено';
-                let artist = data.data?.musicInfo?.author || 'Неизвестно';
-
-                status.innerHTML = `
-                    <h2>✅ Готово</h2>
-                    <p><strong>🎵 Трек:</strong> ${music}</p>
-                    <p><strong>👤 Исполнитель:</strong> ${artist}</p>
-                `;
-            } catch(e) {
-                status.textContent = 'Ошибка: ' + e.message;
+        function initFromParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let url = urlParams.get('url');
+            if (!url && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+                url = tg.initDataUnsafe.start_param;
+            }
+            if (url) {
+                document.getElementById('urlInput').value = decodeURIComponent(url);
+                setTimeout(analyze, 400);
+            } else {
+                document.getElementById('status').innerHTML = 'Вставь ссылку на TikTok видео выше 👆';
             }
         }
 
-        // Получаем параметры из Telegram (startParam или initData)
-        const urlParams = new URLSearchParams(window.location.search);
-        const tiktokUrl = urlParams.get('url') || tg.initDataUnsafe.start_param;
+        async function analyze() {
+            const input = document.getElementById('urlInput').value.trim();
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
 
-        if (tiktokUrl) {
-            analyzeTikTok(decodeURIComponent(tiktokUrl));
-        } else {
-            document.getElementById('status').textContent = 'Пришли ссылку на TikTok через бота';
+            if (!input || !input.includes('tiktok.com')) {
+                status.innerHTML = '❌ Вставь корректную ссылку на TikTok';
+                return;
+            }
+
+            status.innerHTML = `<div class="loading"><div class="spinner"></div><span>Анализируем... (на твоём устройстве)</span></div>`;
+            result.classList.remove('show');
+
+            try {
+                const apiUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(input)}`;
+                const res = await fetch(apiUrl);
+                if (!res.ok) throw new Error('Сервер API недоступен');
+                const data = await res.json();
+                const d = data.data || data;
+
+                document.getElementById('musicTitle').textContent = d.music || d.musicInfo?.title || 'Оригинальный звук';
+                document.getElementById('musicArtist').textContent = d.musicInfo?.author || 'Неизвестно';
+                document.getElementById('videoAuthor').textContent = d.author || d.creator || '—';
+                document.getElementById('likes').textContent = d.stats?.likes || d.digg_count || '—';
+                document.getElementById('views').textContent = d.stats?.views || d.play_count || '—';
+                document.getElementById('duration').textContent = d.duration ? Math.floor(d.duration/1000)+' сек' : '—';
+
+                status.innerHTML = '';
+                result.classList.add('show');
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            } catch(e) {
+                status.innerHTML = '❌ Ошибка: ' + e.message;
+            }
         }
+
+        function copyMusic() {
+            const text = document.getElementById('musicTitle').textContent + ' — ' + document.getElementById('musicArtist').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.currentTarget;
+                alert('Скопировано: ' + text);
+            }).catch(() => alert(text));
+        }
+
+        window.onload = () => {
+            initFromParams();
+            document.getElementById('urlInput').addEventListener('keypress', e => { if (e.key === 'Enter') analyze(); });
+        };
+        tg.BackButton.onClick(() => tg.close());
     </script>
 </body>
 </html>
