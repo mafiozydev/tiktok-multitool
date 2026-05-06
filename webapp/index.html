@@ -66,7 +66,7 @@
         </div>
     </div>
 
-    <div class="footer">TikTok Multitool • v1.2 • Client-side only</div>
+    <div class="footer">TikTok Multitool • v1.3 • Client-side only</div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -99,37 +99,60 @@
                 return;
             }
 
-            status.innerHTML = `<div class="loading"><div class="spinner"></div><span>Анализируем... (на твоём устройстве)</span></div>`;
+            status.innerHTML = `<div class="loading"><div class="spinner"></div><span>Анализируем видео... (всё на твоём устройстве)</span></div>`;
             result.classList.remove('show');
 
             try {
-                const apiUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(input)}`;
-                const res = await fetch(apiUrl);
-                if (!res.ok) throw new Error('Сервер API недоступен');
+                // Используем надёжный публичный API (tikwm.com)
+                const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(input)}`;
+                const res = await fetch(apiUrl, { mode: 'cors' });
+                
+                if (!res.ok) throw new Error('API временно недоступен');
+                
                 const data = await res.json();
-                const d = data.data || data;
+                
+                if (data.code !== 0 || !data.data) {
+                    throw new Error(data.msg || 'Не удалось получить данные');
+                }
+                
+                const d = data.data;
 
-                document.getElementById('musicTitle').textContent = d.music || d.musicInfo?.title || 'Оригинальный звук';
-                document.getElementById('musicArtist').textContent = d.musicInfo?.author || 'Неизвестно';
-                document.getElementById('videoAuthor').textContent = d.author || d.creator || '—';
-                document.getElementById('likes').textContent = d.stats?.likes || d.digg_count || '—';
-                document.getElementById('views').textContent = d.stats?.views || d.play_count || '—';
-                document.getElementById('duration').textContent = d.duration ? Math.floor(d.duration/1000)+' сек' : '—';
+                // Музыка
+                const musicTitle = d.music_info?.title || d.music || 'Оригинальный звук';
+                const musicArtist = d.music_info?.author || 'Неизвестно';
+
+                // Видео метаданные
+                const videoAuthor = d.author?.unique_id || d.author?.nickname || '—';
+                const likes = d.digg_count || d.stats?.digg_count || '—';
+                const views = d.play_count || d.stats?.play_count || '—';
+                const duration = d.duration ? Math.floor(d.duration) + ' сек' : '—';
+
+                document.getElementById('musicTitle').textContent = musicTitle;
+                document.getElementById('musicArtist').textContent = musicArtist;
+                document.getElementById('videoAuthor').textContent = videoAuthor;
+                document.getElementById('likes').textContent = likes;
+                document.getElementById('views').textContent = views;
+                document.getElementById('duration').textContent = duration;
 
                 status.innerHTML = '';
                 result.classList.add('show');
+
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            } catch(e) {
-                status.innerHTML = '❌ Ошибка: ' + e.message;
+            } catch (e) {
+                console.error(e);
+                status.innerHTML = `❌ Ошибка: ${e.message}<br><small>Попробуй другую ссылку или чуть позже</small>`;
             }
         }
 
         function copyMusic() {
             const text = document.getElementById('musicTitle').textContent + ' — ' + document.getElementById('musicArtist').textContent;
             navigator.clipboard.writeText(text).then(() => {
-                const btn = event.currentTarget;
-                alert('Скопировано: ' + text);
-            }).catch(() => alert(text));
+                const original = event.target.innerHTML;
+                event.target.innerHTML = '✅ Скопировано!';
+                setTimeout(() => { event.target.innerHTML = original; }, 1500);
+            }).catch(() => {
+                prompt('Скопируй трек:', text);
+            });
         }
 
         window.onload = () => {
