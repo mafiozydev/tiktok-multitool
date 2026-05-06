@@ -58,6 +58,7 @@
         </div>`;
 
       try {
+        // Используем надёжный API tikwm.com
         const apiUrl = `https://tikwm.com/api/?url=${encodeURIComponent(url)}`;
         const res = await fetch(apiUrl);
         const data = await res.json();
@@ -77,12 +78,12 @@
 
             <div class="flex gap-3">
               ${musicUrl ? `
-                <button onclick="downloadAudio('${musicUrl}', '${(video.music_info?.title || 'original_sound').replace(/[^a-zA-Z0-9]/g, '_')}')" 
+                <button onclick="downloadAudio('${musicUrl}', '${video.music_info?.title || 'original_sound'}')" 
                         class="flex-1 bg-green-600 hover:bg-green-700 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
                   📥 Скачать оригинальный звук
                 </button>` : ''}
               
-              <button onclick="copyTrack('${video.music_info?.title || ''} - ${video.music_info?.author || ''}')"
+              <button onclick="copyTrack('${video.music_info?.title || ''} - ${video.music_info?.author || ''}')" 
                       class="flex-1 bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl font-bold">
                 📋 Копировать название трека
               </button>
@@ -104,7 +105,7 @@
     function downloadAudio(url, title) {
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${title}.mp3`;
+      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp3`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -116,7 +117,7 @@
       });
     }
 
-    // Автозапуск если Telegram передал ссылку
+    // Автозапуск, если Telegram передал ссылку
     window.Telegram?.WebApp?.onEvent('themeChanged', () => {});
   </script>
 </body>
